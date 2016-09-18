@@ -46,12 +46,11 @@
 
 (defn tparm [cap & args]
   (let [cap (tget cap)
-        [r s v a] (apply parse/parse cap [] [] args)]
+        [r s v a] (apply parse/parse cap [] {} args)]
     r))
 
 (defn tgoto [hpos vpos]
   (print (tparm :cursor_address hpos vpos)))
-
 
 (defn tputs [cap]
   (print (tget cap)))

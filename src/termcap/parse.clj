@@ -19,7 +19,7 @@
 (defn is-true? [value]
   (cond
     (string? value)
-    (seq value)
+    (not (empty? value))
 
     (number? value)
     (not (zero? value))
@@ -45,7 +45,7 @@
       (let [n (first current)]
         (cond
           (= n \%)
-          (let [[match token fss :as found] (expect "%([^%]*)" :from current)
+          (let [[match token fss :as found] (expect "%((%)|([^%]*))" :from current)
                 [[r ess] stack vars args :as executed] (execute found stack vars args)]
             (recur (or ess fss)
                    (str result r)
@@ -62,6 +62,8 @@
       [result stack vars args])))
 
 (defn execute-dispatch-fn [[_ token _] _ _ _]
+
+;;  (println "TOKEN = " token)
   (cond
 
     (re-matches #"[?].*" token)     :conditional
@@ -69,7 +71,7 @@
     (re-matches #"e.*" token)       :else
     (re-matches #";.*" token)       :end
     (re-matches #"!.*" token)       :not
-    (re-matches #"%.*" token)       :percent
+    (re-matches #"[\%].*" token)     :percent
     (re-matches #"&.*" token)       :bit-and
     (re-matches #"'.*" token)       :character
     (re-matches #"[*].*" token)     :multiply
@@ -82,15 +84,18 @@
     (re-matches #"A.*" token)       :logical-and
     (re-matches #"O.*" token)       :logical-or
     (re-matches #"P.*" token)       :set-dynamic-var
-    (re-matches #"[\^].*" token)     :bit-exclusive-or
-    (re-matches #":?[^doxXs]*(d|o|x|X|s).*" token)  :format
+    (re-matches #"[\^].*" token)    :bit-exclusive-or
+
+    (re-matches #":?[^doxXsc]*(d|o|x|X|s|c).*" token)  :format
+    (re-matches #"[23]{1}.*" token)                    :format-special-case
+
     (re-matches #"g.*" token)       :get-dynamic-var
     (re-matches #"i.*" token)       :increment
     (re-matches #"l.*" token)       :length
     (re-matches #"m.*" token)       :mod
     (re-matches #"p.*" token)       :push-arg
     (re-matches #"[{].*" token)     :number
-    (re-matches #"|.*" token)       :bit-or
+    (re-matches #"[|].*" token)       :bit-or
     (re-matches #"~.*" token)       :complement
 
     ))
@@ -103,15 +108,22 @@
     [[result (str (str/join more) css)] ns nv a]))
 
 (defmethod execute :truthy [[_ [_ & more] ss] stack vars args]
-  (let [is-truthy (is-true? (peek stack))
-        tss (if is-truthy (first (drop 2 (expect "(.+?(?=%;))" :from ss))) ss)]
-    [[nil tss] (if is-truthy (conj (pop stack) (str/join more)) (pop stack)) vars args]))
+  (if (is-true? (peek stack))
+    (if-let [[match token _] (expect "(.*?(?=%e))" :from ss)]
+      (let [[result ns nv a] (apply parse (str (str/join more) match) (pop stack) vars args)
+            [_ _ ess] (expect "(.*?(?=%;))" :from ss)]
+        [[result ess] ns nv a])
+      (let [[match token ess] (expect "(.*?(?=%;))" :from ss)
+            [result ns nv a] (apply parse (str (str/join more) match) (pop stack) vars args)]
+        [[result ess] ns nv a]))
+    (let [[_ _ ess] (expect "(.*?(?=%e))" :from ss)]
+      [[nil ess] (pop stack) vars args])))
 
 (defmethod execute :else [[_ [_ & more] ss] stack vars args]
-  (if-let [[match token ess] (expect "(.+?(?=%t))" :from ss)]
+  (if-let [[match token ess] (expect "(.*?(?=%t))" :from ss)]
     (let [[result ns nv a] (apply parse (str (str/join more) match) stack vars args)]
       [[result ess] ns nv a])
-    (let [[match token ess] (expect "(.+?(?=%;))" :from ss)
+    (let [[match token ess] (expect "(.*?(?=%;))" :from ss)
           [result ns nv a] (apply parse (str (str/join more) match) stack vars args)]
       [[result ess] ns nv a])))
 
@@ -131,7 +143,7 @@
   [[nil (str (str/join more) ss)] (binary-operation bit-or stack) vars args])
 
 (defmethod execute :character [[_ [_ c _ & more] ss] stack vars args]
-  [[c (str (str/join more) ss)] stack vars args])
+  [[nil (str (str/join more) ss)] (conj stack (int c)) vars args])
 
 (defmethod execute :complement [[_ [_ & more] ss] stack vars args]
   [[nil (str (str/join more) ss)] (unary-operation bit-not stack) vars args])
@@ -143,8 +155,14 @@
   [[nil (str (str/join more) ss)] (binary-operation = stack) vars args])
 
 (defmethod execute :format [[_ format-str-plus ss] stack vars args]
-  (let [[_ format-str more] (re-find #":?([^dxXos]*?(?:d|x|X|o|s))(.*)" format-str-plus)]
-    [[(format (str "%" format-str) (peek stack)) (str more ss)] (pop stack) vars args]))
+  (let [[_ format-str more] (re-find #":?([^dxXosc]*?(?:d|x|X|o|s|c))(.*)" format-str-plus)
+        char? (= \c (last format-str))
+        value (peek stack)]
+    [[(format (str "%" format-str) (if char? (char value) value)) (str more ss)] (pop stack) vars args]))
+
+(defmethod execute :format-special-case [[_ [width & more] ss] stack vars args]
+  (let [format-str (str "%0" width "d")]
+    [[(format format-str (peek stack)) (str more ss)] (pop stack) vars args]))
 
 (defmethod execute :get-dynamic-var [[_ [_ var-name & more] ss] stack vars args]
   [[nil (str (str/join more) ss)] (conj stack (get vars var-name)) vars args])
@@ -156,13 +174,13 @@
   [[nil (str (str/join more) ss)] stack vars (vec (concat [(inc arg1) (inc arg2)] (vec rest-args)))])
 
 (defmethod execute :length [[_ [_ & more] ss] stack vars args]
-  [[nil (str (str/join more) ss)] (conj (pop stack) (count (peek stack))) vars args])
+  [[nil (str (str/join more) ss)] (conj (pop stack) (count (str (peek stack)))) vars args])
 
 (defmethod execute :less-than [[_ [_ & more] ss] stack vars args]
   [[nil (str (str/join more) ss)] (binary-operation < stack) vars args])
 
 (defmethod execute :logical-and [[_ [_ & more] ss] stack vars args]
-  [[nil (str (str/join more) ss)] (binary-operation and? stack) vars])
+  [[nil (str (str/join more) ss)] (binary-operation and? stack) vars args])
 
 (defmethod execute :logical-or [[_ [_ & more] ss] stack vars args]
   [[nil (str (str/join more) ss)] (binary-operation or? stack) vars args])
@@ -181,7 +199,7 @@
     [[nil (str more ss)] (conj stack (next-int number)) vars args]))
 
 (defmethod execute :percent [[_ [_ & more] ss] stack vars args]
-  [[\% (str (str/join more) ss)] stack vars args])
+  [["%" (str (str/join more) ss)] stack vars args])
 
 (defmethod execute :push-arg [[_ token ss] stack vars args]
   (let [[_ number more] (re-find #"(\d+)(.*)" token)
@@ -193,6 +211,6 @@
   [[nil (str (str/join more) ss)] (binary-operation - stack) vars args])
 
 (defmethod execute :set-dynamic-var [[_ [_ var-name & more] ss] stack vars args]
-  [[nil (str (str/join more) ss)] (pop stack) (assoc vars var-name (peek stack))] args)
+  [[nil (str (str/join more) ss)] (pop stack) (assoc vars var-name (peek stack)) args])
 
 (defn done [])
