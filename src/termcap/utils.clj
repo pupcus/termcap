@@ -20,3 +20,4 @@
           (.read is buffer 0 size)
           buffer))
       (throw (ex-info "termcap file cannot be found!" {:file file})))))
+
