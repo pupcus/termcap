@@ -339,14 +339,12 @@
         (is (= {} v))
         (is (= [] a))))
 
-    (comment
-      (testing "test output of a floating point value as a hexadecimal??"
-        (let [args [1.1]
-              [r s v a] (apply subject/parse "%p1%{1000}%/%2.2X" stack vars args)]
-          (is (= "a" r))
-          (is (= [] s))
-          (is (= {} v))
-          (is (= [] a)))))
+    (testing "test output of a value as a hexadecimal"
+      (let [[r s v a] (apply subject/parse "%{31}%#2.2x" stack vars args)]
+        (is (= "0x1f" r))
+        (is (= [] s))
+        (is (= {} v))
+        (is (= [] a))))
 
     (testing "test a more complicated string (from xterm-256color)"
       (let [args [3]

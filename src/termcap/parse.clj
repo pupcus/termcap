@@ -1,5 +1,7 @@
 (ns termcap.parse
-  (:require [clojure.string :as str]))
+  (:refer-clojure :exclude [format])
+  (:require [clojure.string :as str]
+            [termcap.format :refer [format]]))
 
 (defn expect [expectation & {:keys [from]}]
   (let [pattern (re-pattern expectation)]
@@ -149,16 +151,16 @@
   [[nil (str (str/join more) ss)] (unary-operation bit-not stack) vars args])
 
 (defmethod execute :divide [[_ [_ & more] ss] stack vars args]
-  [[nil (str (str/join more) ss)] (binary-operation / stack) vars args])
+(let [stack (binary-operation / stack)
+        result (int (peek stack))]
+    [[nil (str (str/join more) ss)] (conj (pop stack) result)  vars args]))
 
 (defmethod execute :equal [[_ [_ & more] ss] stack vars args]
   [[nil (str (str/join more) ss)] (binary-operation = stack) vars args])
 
 (defmethod execute :format [[_ format-str-plus ss] stack vars args]
-  (let [[_ format-str more] (re-find #":?([^dxXosc]*?(?:d|x|X|o|s|c))(.*)" format-str-plus)
-        char? (= \c (last format-str))
-        value (peek stack)]
-    [[(format (str "%" format-str) (if char? (char value) value)) (str more ss)] (pop stack) vars args]))
+  (let [[_ format-str more] (re-find #":?([^dxXosc]*?(?:d|x|X|o|s|c))(.*)" format-str-plus)]
+    [[(format (str "%" format-str) (peek stack)) (str more ss)] (pop stack) vars args]))
 
 (defmethod execute :format-special-case [[_ [width & more] ss] stack vars args]
   (let [format-str (str "%0" width "d")]

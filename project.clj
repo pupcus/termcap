@@ -8,4 +8,5 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [binary "0.0.2-SNAPSHOT"]])
+                 [binary "0.0.2-SNAPSHOT"]
+                 [utils-common "0.0.9"]])
