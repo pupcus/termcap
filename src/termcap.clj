@@ -4,6 +4,8 @@
             [termcap.parse :as parse]
             [termcap.utils :as u]))
 
+(defonce terminal (jline.TerminalFactory/get))
+
 (defn tgetent
   ([] (tgetent (u/get-term)))
   ([term]
@@ -35,14 +37,12 @@
   ([cap]
    (tget cap (u/get-term)))
   ([cap term]
-   (let [
-         cap (if (keyword? cap) cap (keyword cap))
-         cap (get mapping/cap-lookup cap cap)
-         ]
-     (or (tgetstr cap term)
-         (tgetnum cap term)
-         (tgetflag cap term)
-         :not-found))))
+   (let [cap (if (keyword? cap) cap (keyword cap))
+         cap (get mapping/cap-lookup cap cap)]
+      (or (tgetstr cap term)
+          (tgetnum cap term)
+          (tgetflag cap term)
+          :not-found))))
 
 (defn tparm [cap & args]
   (let [cap (tget cap)
@@ -54,3 +54,14 @@
 
 (defn tputs [cap]
   (print (tget cap)))
+
+
+(defn getWidth []
+  (let [columns (tget :columns)
+        columns (if (= columns :not-found) 0 columns)]
+    (max (.getWidth terminal) columns)))
+
+(defn getHeight []
+  (let [lines (tget :lines)
+        lines (if (= lines :not-found) 0 lines)]
+    (max (.getHeight terminal) lines)))

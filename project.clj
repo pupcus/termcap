@@ -9,4 +9,5 @@
 
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [binary "0.0.2-SNAPSHOT"]
+                 [jline "2.12"]
                  [utils-common "0.0.9"]])
