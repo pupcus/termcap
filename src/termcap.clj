@@ -50,7 +50,7 @@
     r))
 
 (defn tgoto [hpos vpos]
-  (print (tparm :cursor_address hpos vpos)))
+  (print (tparm :cursor_address (int hpos) (int vpos))))
 
 (defn tputs [cap]
   (print (tget cap)))
