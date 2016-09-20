@@ -57,10 +57,11 @@
 (defn getWidth []
   (let [columns (tget :columns)
         [_ stty-cols] (u/terminal-dimensions)
-        columns (if (= columns :not-found) 0 columns)]
+        columns (if-not (number? columns) 0 columns)]
     (max stty-cols columns)))
 
 (defn getHeight []
   (let [lines (tget :lines)
-        [stty-rows _] (u/terminal-dimensions)]
+        [stty-rows _] (u/terminal-dimensions)
+        lines (if-not (number? lines) 0 lines)]
     (max stty-rows lines)))
