@@ -8,10 +8,10 @@
 
 ;; TODO: pull more info out of stty as we need to??
 (defn terminal-settings []
-  (:out (shell/sh "/bin/bash" "-c" "stty -e </dev/tty")))
+  (:out (shell/sh "/bin/bash" "-c" "stty -a </dev/tty")))
 
 (defn terminal-dimensions []
-  (let [[_ _ rows columns] (re-find #"(?smd)^speed\s+(\d+)\s+baud;\s+(\d+)\s+rows;\s+(\d+)\s+columns;.*" (terminal-settings))]
+  (let [[_ _ rows columns] (re-find #"(?smd)^[^\d]*?(\d+)[^;]*;[^d]*?(\d+)[^;]*;[^d]*?(\d+)[^;]*;.*" (terminal-settings))]
     [(parse-number rows) (parse-number columns)]))
 
 (defn get-path [term]
