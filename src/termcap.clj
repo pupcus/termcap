@@ -4,8 +4,6 @@
             [termcap.parse :as parse]
             [termcap.utils :as u]))
 
-(defonce terminal (jline.TerminalFactory/get))
-
 (defn tgetent
   ([] (tgetent (u/get-term)))
   ([term]
@@ -58,10 +56,11 @@
 
 (defn getWidth []
   (let [columns (tget :columns)
+        [_ stty-cols] (u/terminal-dimensions)
         columns (if (= columns :not-found) 0 columns)]
-    (max (.getWidth terminal) columns)))
+    (max stty-cols columns)))
 
 (defn getHeight []
   (let [lines (tget :lines)
-        lines (if (= lines :not-found) 0 lines)]
-    (max (.getHeight terminal) lines)))
+        [stty-rows _] (u/terminal-dimensions)]
+    (max stty-rows lines)))

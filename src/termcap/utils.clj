@@ -1,8 +1,18 @@
 (ns termcap.utils
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
+            [utils.common.parse :refer [parse-number]]))
 
 (defn get-term []
   (System/getenv "TERM"))
+
+;; TODO: pull more info out of stty as we need to??
+(defn terminal-settings []
+  (:out (shell/sh "/bin/bash" "-c" "stty -e </dev/tty")))
+
+(defn terminal-dimensions []
+  (let [[_ _ rows columns] (re-find #"(?smd)^speed\s+(\d+)\s+baud;\s+(\d+)\s+rows;\s+(\d+)\s+columns;.*" (terminal-settings))]
+    [(parse-number rows) (parse-number columns)]))
 
 (defn get-path [term]
   (let [os-name (System/getProperty "os.name")
