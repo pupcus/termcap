@@ -2,7 +2,9 @@
 
   :description "utils for reading termcap db entries"
 
-  :url ""
+  :url "https://github.com/pupcus/termcap"
+
+  :scm {:url "git@github.com:pupcus/termcap.git"}
 
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
